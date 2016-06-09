@@ -1,6 +1,7 @@
 
 library(igraph)
 library(MASS)
+library(Matrix)
 
 config.samples_num = 200 # 样本数
 config.node_num = 10 # 节点数q
@@ -9,7 +10,8 @@ config.arr_num = 20 # 属性信息个数p
 config.power = 1 # 生成scale-free network 幂率指数
 config.beta = 4 # 
 config.rho = 0.8 #
-config.p_theta = 0.8 #Gibbs sampling probilities
+config.p_theta = 0.8 #Gibbs sampling 概率
+config.iter = 1000 #Gibbs sampling 迭代次数
 G = vector('list', config.samples_num) # 图list
 M = vector('list', config.samples_num) # 矩阵list
 Th = vector('list', config.samples_num) # theta矩阵list
@@ -40,11 +42,23 @@ if( config.rho >0 && config.rho <1 && config.p_theta >0 && config.p_theta<1 ){
             }
         }
         theta = theta + t(theta)
+        theta_sparse =  matrix( rep(0, config.node_num*config.node_num), config.node_num, config.node_num )
         info = summary(Th[[i]])
         for (io in 1:nrow(info)){
             Th[[i]]@x[io] = theta[info[io,1],info[io,2]]
+            for (ir in 1:config.node_num){
+                for (ic in 1:config.node_num){
+                    if( ir == info[io,1] && ic == info[io,2]){
+                        theta_sparse[ir,ic] = theta[info[io,1],info[io,2]]
+                    }
+                }
+            }
+        }
+        for (ir in 1:config.node_num){
+            theta_sparse[ir,ir] = theta[ir,ir]
         }
 
+        y_binary = GibbsSampling(config, theta_sparse)
 
     }
 }else{
@@ -67,6 +81,23 @@ GenerateVectorTheta = function( config ){
     return (v_theta)
 }
 
-GibbsSampling = function( p_theta,config ){
-    
+GibbsSampling = function( config ,theta ){
+    y = matrix(rep(rep(0,config.node_num),config.iter),nrow = config.iter, ncol = config.node_num)
+    for (i in 1:config.iter){
+        for (j in 1:config.node_num){
+            uniformRV<-runif(1)
+            # if(y[i,j] == 1){
+            #     A = theta[j,] %*% t(y[i,])
+            # }else{
+            #     A = theta[j,] %*% t(y[i,]) + theta[j,j]
+            # }
+            # exp_A = exp(A)
+            if( uniformRV < config.p_theta ){
+                y[i,j] = 1
+            }else{
+                y[i,j] = 0
+            }
+        }
+    }
+    return (y)
 }
