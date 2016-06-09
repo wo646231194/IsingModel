@@ -2,44 +2,71 @@
 library(igraph)
 library(MASS)
 
-n = 200 # 样本数
-node_num = 10 # 节点数
-arr_num = 1 # 属性信息个数
-arr_sample_num = 1000 #属性信息变量样本个数
-power = 1 # 生成scale-free network 幂率指数
-beta = 4 # 
-rho = 0.8 # 
-p_theta = 0.5 #Gibbs sampling probilities
-G = vector('list',n) # 图list
-M = vector('list',n) # 矩阵list
-B = vector('list',n) # beta矩阵list
+config.samples_num = 200 # 样本数
+config.node_num = 10 # 节点数q
+config.arr_num = 20 # 属性信息个数p
+#config.arr_sample_num = 1000 #属性信息变量样本个数
+config.power = 1 # 生成scale-free network 幂率指数
+config.beta = 4 # 
+config.rho = 0.8 #
+config.p_theta = 0.8 #Gibbs sampling probilities
+G = vector('list', config.samples_num) # 图list
+M = vector('list', config.samples_num) # 矩阵list
+Th = vector('list', config.samples_num) # theta矩阵list
 
-if( rho >0 && rho <1 ){
-    for (i in 1:n){
-        g <- barabasi.game(node_num , power = power, directed = FALSE) #scale-free network 生成图
+if( config.rho >0 && config.rho <1 && config.p_theta >0 && config.p_theta<1 ){
+    for (i in 1:config.samples_num){
+        g <- barabasi.game(config.node_num , power = config.power, directed = FALSE) #scale-free network 生成图
         G[[i]] = g
         M[[i]] = as_adjacency_matrix(g)
-        B[[i]] = M[[i]]
-        len = length(M[[i]]@x)
-        rand = runif(len, min = 0, max = 1)
-        for (j in 1:len){
-            if( rand[j]>rho ){
-                B[[i]]@x[j] = 0
-            }else if( rand[j]<= rho/2 ){
-                B[[i]]@x[j] = beta
-            }else{
-                B[[i]]@x[j] = (-beta)
+        Th[[i]] = M[[i]]
+
+        theta = matrix( rep(0, config.node_num*config.node_num), config.node_num, config.node_num )
+        for (ir in 1:config.node_num){
+            for (ic in ir:config.node_num){
+                if( ir == ic){
+                    config.rho_now = 1
+                }else{
+                    config.rho_now = config.rho
+                }
+                x = rnorm ( config.arr_num )
+                x = cbind (1, t(x))
+                v_theta = GenerateVectorTheta(config)
+                if( ir == ic){
+                    theta[ir,ic] = (x %*% v_theta)/2
+                }else{
+                    theta[ir,ic] = (x %*% v_theta)
+                }
             }
         }
-        sigma = diag(arr_num)
-        mu = rep(0,arr_num)
-        x = mvrnorm(n=arr_sample_num,mu,sigma)
+        theta = theta + t(theta)
+        info = summary(Th[[i]])
+        for (io in 1:nrow(info)){
+            Th[[i]]@x[io] = theta[info[io,1],info[io,2]]
+        }
+
 
     }
 }else{
     cat("rho is error!\n");
 }
 
-GibbsSampling = function(num, p_theta){
+GenerateVectorTheta = function( config ){
+    len = config.arr_num +1
+    v_theta = rep(0, len)
+    rand = runif(len, min = 0, max = 1)
+    for (j in 1:len){
+        if( rand[j]>config.rho_now ){
+            v_theta[j] = 0
+        }else if( rand[j]<= config.rho_now/2 ){
+            v_theta[j] = config.beta
+        }else{
+            v_theta[j] = (-config.beta)
+        }
+    }
+    return (v_theta)
+}
 
-} 
+GibbsSampling = function( p_theta,config ){
+    
+}
